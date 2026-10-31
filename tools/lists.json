@@ -1,0 +1,63 @@
+{
+  "_comment": "Block lists compiled by tools/build_rules.py. Each entry becomes one toggleable ruleset. format: 'hosts' (StevenBlack style), 'domains' (adblock syntax holding only ||domain^ lines, as DNS lists use) or 'adblock' (full EasyList syntax: network patterns and element hiding). 'documents': also block navigating to a listed site, not only what pages load from it.",
+  "lists": [
+    {
+      "id": "easylist",
+      "name": "EasyList",
+      "about": "Ads, and the empty spaces they leave behind.",
+      "url": "https://easylist.to/easylist/easylist.txt",
+      "format": "adblock",
+      "enabled": true
+    },
+    {
+      "id": "easyprivacy",
+      "name": "EasyPrivacy",
+      "about": "Trackers and analytics.",
+      "url": "https://easylist.to/easylist/easyprivacy.txt",
+      "format": "adblock",
+      "enabled": true
+    },
+    {
+      "id": "stevenblack",
+      "name": "StevenBlack hosts",
+      "about": "Ad and malware domains.",
+      "url": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
+      "format": "hosts",
+      "enabled": true
+    },
+    {
+      "id": "oisd",
+      "name": "OISD big",
+      "about": "Ads, trackers and malware domains.",
+      "url": "https://big.oisd.nl",
+      "format": "domains",
+      "enabled": true
+    },
+    {
+      "id": "hagezi-ultimate",
+      "name": "HaGeZi Ultimate",
+      "about": "Aggressive ads and tracking domains.",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/ultimate.txt",
+      "format": "domains",
+      "enabled": true
+    },
+    {
+      "id": "hagezi-tif",
+      "name": "HaGeZi Threat Intelligence",
+      "about": "Malware, phishing and scam sites. Blocks visiting them too.",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/tif.txt",
+      "format": "domains",
+      "documents": true,
+      "enabled": true
+    },
+    {
+      "id": "hagezi-gambling",
+      "name": "HaGeZi Gambling",
+      "about": "Gambling sites. Blocks visiting them too.",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/gambling.txt",
+      "format": "domains",
+      "documents": true,
+      "enabled": true
+    }
+  ]
+}

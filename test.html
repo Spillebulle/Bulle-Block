@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bulle Block test page</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    body { background: var(--window); color: var(--text); font-family: var(--font-ui); font-size: var(--text-body); padding: 24px; max-width: 720px; }
+    h1 { font-size: 15px; font-weight: 600; color: var(--text-strong); margin: 0 0 4px; }
+    p { color: var(--text-muted); margin: 0 0 16px; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line-soft); font-size: var(--text-control); }
+    th { color: var(--text-dim); font-weight: 500; }
+    td.r { font-family: var(--font-figure); }
+    .pass { color: var(--good); }
+    .fail { color: var(--critical); }
+    .bait { padding: 6px; margin: 4px 0; border: 1px dashed var(--line-dashed); }
+  </style>
+</head>
+<body>
+  <h1>Bulle Block test page</h1>
+  <p>Serve this folder over http (python -m http.server) and open it with the extension loaded. Element hiding does not run on file:// pages.</p>
+  <p>On a network with a DNS blocker such as Pi-hole, the ad requests fail even with the extension off, so "blocked" alone proves nothing. Open DevTools: the extension's blocks show as ERR_BLOCKED_BY_CLIENT, the DNS blocker's as ERR_ADDRESS_INVALID or ERR_NAME_NOT_RESOLVED.</p>
+
+  <!-- Element hiding bait: selectors taken from EasyList's generic rules -->
+  <div class="sponsored-post bait" id="bait1">An EasyList generic selector (.sponsored-post). You should not see this.</div>
+  <div id="carbonads" class="bait">An EasyList generic selector (#carbonads). You should not see this.</div>
+  <div class="bait" id="control">An ordinary box. You should see this.</div>
+
+  <table>
+    <thead><tr><th>Check</th><th>Expected</th><th>Result</th></tr></thead>
+    <tbody id="results"></tbody>
+  </table>
+
+  <script>
+    const checks = [];
+    const row = (name, expected, ok, detail) => {
+      checks.push({ name, ok });
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td></td><td></td><td class="r ${ok ? 'pass' : 'fail'}"></td>`;
+      tr.children[0].textContent = name;
+      tr.children[1].textContent = expected;
+      tr.children[2].textContent = (ok ? 'Pass. ' : 'Fail. ') + detail;
+      document.getElementById('results').appendChild(tr);
+      document.title = `${checks.filter(c => c.ok).length}/${checks.length} pass`;
+    };
+
+    // Network: a request that loads means it was not blocked.
+    function load(tag, url) {
+      return new Promise(resolve => {
+        const el = document.createElement(tag);
+        el.onload = () => resolve('loaded');
+        el.onerror = () => resolve('blocked');
+        setTimeout(() => resolve('timed out'), 8000);
+        el.src = url;
+        document.body.appendChild(el);
+        if (tag === 'img') el.style.display = 'none';
+      });
+    }
+
+    const net = [
+      ['Ad script (googlesyndication.com, in EasyList and domain lists)', 'script', 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js', 'blocked'],
+      ['Ad image (doubleclick.net, in StevenBlack)', 'img', 'https://ad.doubleclick.net/favicon.ico', 'blocked'],
+      ['Ordinary image (wikipedia.org)', 'img', 'https://www.wikipedia.org/static/favicon/wikipedia.ico', 'loaded'],
+    ];
+
+    (async () => {
+      for (const [name, tag, url, want] of net) {
+        const got = await load(tag, url);
+        row(name, want, got === want, got);
+      }
+      // Hiding is inserted a moment after the page starts; give it time.
+      await new Promise(r => setTimeout(r, 500));
+      for (const [id, want] of [['bait1', 'none'], ['carbonads', 'none'], ['control', 'block']]) {
+        const got = getComputedStyle(document.getElementById(id)).display;
+        row(`#${id} display`, want, got === want, got);
+      }
+      document.body.dataset.done = '1';
+    })();
+  </script>
+</body>
+</html>

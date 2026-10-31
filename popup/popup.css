@@ -1,0 +1,320 @@
+@font-face {
+  font-family: "Archivo";
+  src: url("../fonts/Archivo.ttf") format("truetype");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 320px;
+  background-color: var(--window);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--lh);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Top bar (§7.1) ──────────────────────────────────────────────────────── */
+.topbar {
+  height: var(--h-menubar);
+  background: var(--chrome);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--pad-strip);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mark {
+  width: var(--mark);
+  height: var(--mark);
+  border-radius: var(--r-tight);
+  display: block;
+}
+
+.appname {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-strong);
+  letter-spacing: -0.01em;
+}
+
+/* ── Content ─────────────────────────────────────────────────────────────── */
+.content {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line-soft);
+  gap: 12px;
+}
+
+.row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--text-control);
+  font-weight: 500;
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.desc {
+  font-size: var(--text-tiny);
+  color: var(--text-muted);
+}
+
+.figure {
+  font-family: var(--font-figure);
+  font-size: var(--text-tiny);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-strong);
+}
+
+/* ── This page ───────────────────────────────────────────────────────────── */
+.site {
+  display: flex;
+  flex-direction: column;
+}
+
+.site-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 2px;
+}
+
+.host {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-head .figure {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.reload {
+  padding: 4px 0 2px;
+  color: var(--caution);
+}
+
+/* Off everywhere: the rows below the master switch say nothing true. */
+body.off .content > :not(#accessBlock) {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ── Toggle (§7.8: 34 × 18, radius 9) ────────────────────────────────────── */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.pill {
+  position: absolute;
+  inset: 0;
+  background-color: var(--rail);
+  border-radius: 9px;
+  transition: background-color var(--t-hover) var(--ease);
+}
+
+.pill::before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--knob);
+  border-radius: 50%;
+  box-shadow: var(--shadow-knob);
+  transition: transform var(--t-open) var(--ease);
+}
+
+input:checked + .pill {
+  background-color: var(--accent);
+}
+
+input:checked + .pill::before {
+  transform: translateX(16px);
+}
+
+input:focus-visible + .pill {
+  box-shadow: 0 0 0 2px var(--accent-ring);
+}
+
+/* ── Well: the block lists (§7.5) ────────────────────────────────────────── */
+.well {
+  background: var(--dock);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 8px 10px 2px;
+  margin-top: 6px;
+}
+
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--placeholder);
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+
+.well .row:last-child {
+  border-bottom: none;
+}
+
+.list .count {
+  font-family: var(--font-figure);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+/* ── Buttons (§7.6) ──────────────────────────────────────────────────────── */
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.btn {
+  height: var(--h-button);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: var(--control);
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  font-family: var(--font-ui);
+  font-size: var(--text-control);
+  font-weight: 500;
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: background var(--t-hover) var(--ease), border-color var(--t-hover) var(--ease);
+}
+
+.btn:hover {
+  background: var(--control-hover);
+  border-color: var(--line-dashed);
+}
+
+/* ── Footer (§7.1, §12: version in the corner) ───────────────────────────── */
+.footbar {
+  height: 28px;
+  background: var(--chrome);
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--pad-strip);
+}
+
+.version {
+  font-size: var(--text-tiny);
+  color: var(--text-dim);
+}
+
+.footlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-tiny);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color var(--t-hover) var(--ease);
+}
+
+.footlink:hover {
+  color: var(--text-strong);
+}
+
+/* The hidden attribute must win over class display rules. */
+[hidden] {
+  display: none !important;
+}
+
+/* ── Report a problem (as Pictureframe's misfire reporter) ───────────────── */
+.report-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.btn .i {
+  color: var(--accent);
+  flex: none;
+}
+
+.report-note {
+  color: var(--text-dim);
+}
+
+.desclink {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--line-dashed);
+}
+
+.desclink:hover {
+  color: var(--text-strong);
+}
+
+/* §1 honest controls: a disabled button looks it and says why in its title. */
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn:disabled:hover {
+  background: var(--control);
+  border-color: var(--line);
+}

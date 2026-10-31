@@ -1,0 +1,17 @@
+{
+  "version": {
+    "license": "GPL-3.0-or-later"
+  },
+  "categories": {
+    "firefox": ["privacy-security"]
+  },
+  "summary": {
+    "en-US": "Blocks ads, trackers and malware on every site, hides the spaces they leave, and removes Facebook's sponsored posts."
+  },
+  "homepage": {
+    "en-US": "https://github.com/Spillebulle/Bulle-Block"
+  },
+  "support_url": {
+    "en-US": "https://github.com/Spillebulle/Bulle-Block/issues"
+  }
+}
