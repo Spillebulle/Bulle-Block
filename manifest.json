@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Bulle Block - Ad Blocker",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "Blocks ads, trackers and malware on every site, and Facebook's sponsored posts. Uses your own block lists.",
   "permissions": [
     "declarativeNetRequest",
     "activeTab",
     "storage",
-    "scripting"
+    "scripting",
+    "webNavigation"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -65,6 +66,16 @@
         "id": "easyprivacy",
         "enabled": true,
         "path": "rules/easyprivacy.json"
+      },
+      {
+        "id": "nordic",
+        "enabled": true,
+        "path": "rules/nordic.json"
+      },
+      {
+        "id": "fixes",
+        "enabled": true,
+        "path": "rules/fixes.json"
       },
       {
         "id": "stevenblack",

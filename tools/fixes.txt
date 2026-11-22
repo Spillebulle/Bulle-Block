@@ -1,0 +1,10 @@
+! Title: Bulle Block fixes
+! Our own rules for ads the other lists miss, written from "Ad got through"
+! reports. EasyList syntax; compiled with the other lists by build_rules.py.
+! Keep each rule under a comment saying what it hides and when it was reported.
+
+! Schibsted's "advertory" ad slots (topboard, netboards) keep their wrapper
+! and its reserved height after the ad inside is blocked. Seen on vg.no
+! (advertory-vg-…) and aftenbladet.no (advertory-sa-…); the prefix is the ad
+! system's own, so the rule is generic. 2026-10-31.
+##[class^="advertory-"][class*="-wrapper"]

@@ -70,6 +70,31 @@
       </label>
     </div>
 
+    <div class="row">
+      <div class="row-info">
+        <label for="popups" class="label">Close ad pop-ups</label>
+        <span class="desc">New tabs opened by ads are closed straight away.</span>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="popups" checked>
+        <span class="pill"></span>
+      </label>
+    </div>
+
+    <!-- Domains a page may not send the tab to -->
+    <div class="block">
+      <div class="row-info">
+        <label for="redirectInput" class="label">Stop redirects to</label>
+        <span class="desc">A page cannot send you to these sites, or to any site the block lists below block. Links you click still work.</span>
+      </div>
+      <form class="add-domain" id="redirectForm">
+        <input type="text" class="field" id="redirectInput" placeholder="example.com" spellcheck="false" autocomplete="off">
+        <button type="submit" class="btn" title="Add this domain to the list.">Add</button>
+      </form>
+      <span class="desc warn" id="redirectNote" hidden>That does not look like a web address.</span>
+      <div id="redirects"></div>
+    </div>
+
     <!-- Report a problem: as Pictureframe's misfire reporter, to GitHub Issues -->
     <div class="block" id="reportBlock">
       <div class="row-info">
@@ -114,6 +139,18 @@
       GitHub
     </a>
   </footer>
+
+  <template id="redirectRow">
+    <div class="domain">
+      <span class="domain-name"></span>
+      <button type="button" class="remove">
+        <svg class="i" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6 6 18"></path>
+          <path d="m6 6 12 12"></path>
+        </svg>
+      </button>
+    </div>
+  </template>
 
   <template id="listRow">
     <div class="row list">

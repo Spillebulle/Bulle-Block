@@ -27,7 +27,8 @@ The first install takes a few seconds while the browser indexes three million do
 
 ## What it blocks
 
-- **Ads and trackers** from EasyList and EasyPrivacy.
+- **Ads and trackers** from EasyList and EasyPrivacy, and on Nordic sites from Dandelion Sprout's Nordic filters.
+- **Ads the lists miss**, from Bulle Block's own fixes list, written from reports.
 - **Ad, tracking and malware domains** from the same lists a Pi-hole uses: StevenBlack, OISD big and HaGeZi Ultimate.
 - **Dangerous and gambling sites** from HaGeZi Threat Intelligence and Gambling. These two also stop you visiting the sites, not only loading from them.
 - **The spaces ads leave behind**: empty boxes, banners and placeholders are hidden, at a priority pages cannot override.
@@ -49,4 +50,4 @@ Choose **Ad got through** in the toolbar popup and click the ad: the page never 
 
 ## Licence
 
-GPL-3.0, see [LICENSE](LICENSE). Includes Archivo (SIL Open Font License, `fonts/OFL.txt`), icon geometry from Lucide (ISC), and compiled rules from EasyList and EasyPrivacy (GPL-3.0 / CC BY-SA 3.0), StevenBlack hosts (MIT), HaGeZi (GPL-3.0) and OISD (terms at oisd.nl).
+GPL-3.0, see [LICENSE](LICENSE). Includes Archivo (SIL Open Font License, `fonts/OFL.txt`), icon geometry from Lucide (ISC), and compiled rules from EasyList and EasyPrivacy (GPL-3.0 / CC BY-SA 3.0), Dandelion Sprout's Nordic filters (Dandelicence), StevenBlack hosts (MIT), HaGeZi (GPL-3.0) and OISD (terms at oisd.nl).

@@ -10,6 +10,8 @@ Writes, all generated and never edited by hand:
                          big for one 4.5 MB file become <id>-1.json, <id>-2.json
     rules/<id>.css.json  element hiding for adblock-format lists
     rules/index.json     what the popup shows: names, counts, defaults
+    rules/domains/NN.bin every whole domain the lists block, hashed, for
+                         "Stop redirects to" (see write_domain_table)
     manifest.json        only its declarative_net_request.rule_resources,
                          which therefore follows the lists' sizes
 
@@ -22,6 +24,7 @@ header and CSP rules, uBO-only options) is skipped and counted.
 """
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -39,6 +42,11 @@ DOMAINS_PER_RULE = 10_000
 # addons.mozilla.org's linter refuses to parse a file over 5 MB and fails the
 # upload, so big lists are split across several ruleset files ("parts").
 PART_BYTES = 4_500_000
+# The redirect table: sha256(domain) picks a shard by its first byte; the next
+# six bytes are the key, then two bytes of list bits (so at most 16 lists).
+# 54 bits of hash over ~3 M domains makes a false match about one in 10^9.
+DOMAIN_SHARDS = 64
+DOMAIN_BITS = 16
 
 # Hosts files list the machine's own names first; none of them are ads.
 HOSTS_IGNORE = {
@@ -68,6 +76,8 @@ PROCEDURAL = re.compile(r":-abp-|:contains\(|:has-text\(|:xpath\(|:upward\(|:sty
 
 
 def fetch(lst, offline):
+    if "path" in lst:  # a list kept in this repository, such as tools/fixes.txt
+        return (ROOT / lst["path"]).read_text(encoding="utf-8")
     path = CACHE / f"{lst['id']}.txt"
     if not offline:
         CACHE.mkdir(parents=True, exist_ok=True)
@@ -136,6 +146,9 @@ class AdblockCompiler:
         self.exceptions = {}               # domain -> [selector]   (#@#)
         self.generichide = set()           # domains where generic hiding is off
         self.elemhide = set()              # domains where all hiding is off
+        self.popup_hosts = set()           # ||domain^$popup with no other condition
+        self.popup_block = []              # every other $popup rule
+        self.popup_allow = []              # @@...$popup
         self.skipped = Counter()
 
     def add(self, line):
@@ -147,6 +160,9 @@ class AdblockCompiler:
                 head, sel = line.split(sep, 1)
                 self.cosmetic(head, sel, sep == "#@#")
                 return
+        if "##+js(" in line or "#@#+js(" in line:
+            self.skipped["scriptlet"] += 1
+            return
         if re.search(r"#[?$%@]+#", line):
             self.skipped["procedural or snippet"] += 1
             return
@@ -186,13 +202,15 @@ class AdblockCompiler:
         if "$" in line and not (line.startswith("/") and line.rstrip().endswith("/")):
             idx = line.rfind("$")
             pattern, opts = line[:idx], [o.strip() for o in line[idx + 1:].split(",") if o.strip()]
-        if pattern.startswith("/") and pattern.endswith("/") and len(pattern) > 2:
+        regex = pattern.startswith("/") and pattern.endswith("/") and len(pattern) > 2
+        if regex and "popup" not in [o.lower() for o in opts]:
             self.skipped["regular expression"] += 1
             return
 
         cond, types, not_types = {}, [], []
         priority = 2 if allow else 1
         cosmetic_only = False
+        popup = False
         for o in opts:
             neg = o.startswith("~")
             name, _, value = (o[1:] if neg else o).partition("=")
@@ -219,19 +237,24 @@ class AdblockCompiler:
                 priority = 3
             elif name == "all":
                 types += ["main_frame"] + SUBRESOURCES
+                popup = True
             elif name in ("elemhide", "ehide", "generichide", "ghide") and allow:
                 cosmetic_only = True
                 m = SIMPLE_DOMAIN_RULE.match(pattern.lower())
                 if m:
                     (self.elemhide if name in ("elemhide", "ehide") else self.generichide).add(m.group(1))
             elif name == "popup":
-                self.skipped["popup"] += 1
-                return
+                popup = not neg
             else:
                 self.skipped[f"option {name}"] += 1
                 return
         if cosmetic_only:
             return
+        if popup:
+            self.popup(pattern, regex, allow, cond)
+            # document,popup also blocks plain navigation; a bare popup is done.
+            if regex or not (types or not_types):
+                return
 
         # The cheap and common case: a bare domain, bundled with its kin.
         if not allow and not opts:
@@ -269,6 +292,34 @@ class AdblockCompiler:
             action = "block"
         self.rules.append({"priority": priority, "action": {"type": action}, "condition": cond})
 
+    def popup(self, pattern, regex, allow, cond):
+        """DNR cannot tell a pop-up from a page the user opened, so these go to
+        rules/<id>.popup.json and background.js matches new tabs against them."""
+        if not regex:
+            if pattern in ("", "*", "|", "||"):
+                pattern = ""
+                if not cond.get("initiatorDomains"):
+                    self.skipped["popup matches everything"] += 1
+                    return
+            elif not pattern.isascii():
+                self.skipped["non-ASCII pattern"] += 1
+                return
+            elif len(pattern.strip("*|^")) < 3:
+                self.skipped["too short"] += 1
+                return
+        if not allow and not cond and not regex:
+            m = SIMPLE_DOMAIN_RULE.match(pattern.lower())
+            if m and DOMAIN_RE.match(m.group(1)):
+                self.popup_hosts.add(m.group(1))
+                return
+        rule = {"urlFilter": pattern, **cond}
+        if regex:
+            rule["regex"] = True
+        (self.popup_allow if allow else self.popup_block).append(rule)
+
+    def popup_output(self):
+        return {"hosts": sorted(self.popup_hosts), "block": self.popup_block, "allow": self.popup_allow}
+
     def output(self):
         domains = collapse_subdomains(self.simple_block)
         rules = domain_rules(domains, 1, SUBRESOURCES)
@@ -282,7 +333,7 @@ class AdblockCompiler:
             "generichide": sorted(self.generichide),
             "elemhide": sorted(self.elemhide),
         }
-        return rules, len(domains), cosmetic
+        return rules, domains, cosmetic
 
 
 def split_parts(rules):
@@ -303,6 +354,30 @@ def write_json(path, data):
     return path.stat().st_size
 
 
+def write_domain_table(by_bit):
+    """Every whole domain the lists block, for background.js to stop pages
+    redirecting there. DNR cannot do it: a main_frame rule would also break
+    links the user clicks. Three million names are too many to load as JSON
+    in a service worker, so each is hashed into one of 64 small sorted shards
+    and a lookup reads one shard per suffix of the host. Entries are 8 bytes:
+    sha256 bytes 1..6, then the bits of the lists that hold the domain."""
+    out = OUT / "domains"
+    out.mkdir(exist_ok=True)
+    shards = [{} for _ in range(DOMAIN_SHARDS)]
+    for bit, domains in by_bit.items():
+        for d in domains:
+            h = hashlib.sha256(d.encode("ascii")).digest()
+            shard = shards[h[0] % DOMAIN_SHARDS]
+            key = h[1:7]
+            shard[key] = shard.get(key, 0) | (1 << bit)
+    total = 0
+    for n, shard in enumerate(shards):
+        data = b"".join(k + m.to_bytes(2, "big") for k, m in sorted(shard.items()))
+        (out / f"{n:02x}.bin").write_bytes(data)
+        total += len(data)
+    return sum(len(s) for s in shards), total
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--offline", action="store_true", help="use tools/.cache instead of downloading")
@@ -310,10 +385,11 @@ def main():
 
     config = json.loads((ROOT / "tools" / "lists.json").read_text(encoding="utf-8"))
     OUT.mkdir(exist_ok=True)
-    for old in OUT.glob("*.json"):
+    for old in [*OUT.glob("*.json"), *OUT.glob("domains/*.bin")]:
         old.unlink()
 
     index = []
+    by_bit = {}  # redirect-table bit -> the list's whole-domain blocks
     for lst in config["lists"]:
         print(f"{lst['name']}")
         text = fetch(lst, args.offline)
@@ -323,10 +399,16 @@ def main():
             comp = AdblockCompiler()
             for line in text.splitlines():
                 comp.add(line)
-            rules, n_domains, cosmetic = comp.output()
+            rules, domains, cosmetic = comp.output()
+            n_domains = len(domains)
             size = write_json(OUT / f"{lst['id']}.css.json", cosmetic)
             entry["hiding"] = len(cosmetic["generic"]) + sum(len(v) for v in cosmetic["specific"].values())
             print(f"  element hiding: {len(cosmetic['generic'])} generic, {len(cosmetic['specific'])} sites ({size / 1e6:.1f} MB)")
+            popups = comp.popup_output()
+            entry["popups"] = len(popups["hosts"]) + len(popups["block"]) + len(popups["allow"])
+            if entry["popups"]:
+                write_json(OUT / f"{lst['id']}.popup.json", popups)
+                print(f"  pop-ups: {entry['popups']} rules")
             if comp.skipped:
                 top = ", ".join(f"{k} {v}" for k, v in comp.skipped.most_common(6))
                 print(f"  skipped {sum(comp.skipped.values())}: {top}")
@@ -338,8 +420,13 @@ def main():
             rules = domain_rules(domains, 1, types)
             n_domains = len(domains)
             print(f"  {raw} domains, {n_domains} after dropping covered subdomains")
-        if not rules:
+        if not rules and not entry.get("hiding"):
             sys.exit(f"{lst['id']} compiled to no rules; is the URL still a block list?")
+        if domains:
+            if len(by_bit) == DOMAIN_BITS:
+                sys.exit(f"More than {DOMAIN_BITS} lists block whole domains; widen the redirect table's list bits.")
+            entry["domainBit"] = len(by_bit)
+            by_bit[entry["domainBit"]] = domains
         parts = split_parts(rules)
         entry["rulesets"] = []
         entry["allow"] = {}
@@ -362,6 +449,8 @@ def main():
         index.append(entry)
 
     write_json(OUT / "index.json", index)
+    n_keys, size = write_domain_table(by_bit)
+    print(f"\nRedirect table: {n_keys} domains in {DOMAIN_SHARDS} shards ({size / 1e6:.1f} MB).")
 
     manifest_path = ROOT / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

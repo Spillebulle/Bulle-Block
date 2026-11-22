@@ -67,6 +67,9 @@
     return s;
   }
 
+  // data: and blob: images are drawn in the page; they name no address.
+  const inline = url => /^(data|blob|javascript):/i.test(url);
+
   function strip(url) {
     try {
       const u = new URL(url, location.href);
@@ -99,11 +102,11 @@
     const resources = new Set();
     const collect = n => {
       const src = n.currentSrc || n.src || n.getAttribute?.('data-src');
-      if (src && typeof src === 'string') resources.add(`  ${n.tagName.toLowerCase()} ${strip(src)}`);
+      if (src && typeof src === 'string' && !inline(src)) resources.add(`  ${n.tagName.toLowerCase()} ${strip(src)}`);
       if (n.tagName === 'A' && n.href) resources.add(`  a ${strip(n.href)}`);
       const bg = n.nodeType === 1 && getComputedStyle(n).backgroundImage;
       const m = bg && bg.match(/url\(["']?([^"')]+)/);
-      if (m) resources.add(`  background ${strip(m[1])}`);
+      if (m && !inline(m[1])) resources.add(`  background ${strip(m[1])}`);
     };
     collect(el);
     el.querySelectorAll('iframe, img, video, source, a, [style*="background"], embed, object').forEach(collect);
@@ -119,12 +122,104 @@
       ...chain,
       'Loads from:',
       ...(resources.size ? [...resources].slice(0, 25) : ['  nothing visible (a script may have drawn it)']),
+      ...facebookDiagnosis(el),
       '',
       'HTML (first 800 characters):',
       '```html',
       html,
       '```'
     ].join('\n');
+  }
+
+  // On Facebook, ask content/facebook.js (page world) what the feed filter
+  // saw, and match its items to the picked post by the page links inside it.
+  function facebookDiagnosis(el) {
+    if (!/(^|\.)facebook\.com$/.test(location.hostname)) return [];
+    document.documentElement.removeAttribute('data-bulleblock-fb-diag');
+    document.dispatchEvent(new CustomEvent('bulleblock-fb-diagnose'));
+    let diag;
+    try {
+      diag = JSON.parse(document.documentElement.getAttribute('data-bulleblock-fb-diag'));
+    } catch {
+      diag = null;
+    }
+    if (!diag) {
+      return ['', 'Facebook filter: did not answer. Reload the Facebook tab: after Bulle Block is updated or reloaded, the old copy of the filter keeps running in an open tab until the page reloads.'];
+    }
+    const { stats, seen } = diag;
+    const links = new Set([...el.querySelectorAll('a[href]')].map(a => strip(a.href)));
+    const match = seen.filter(s => s.links.some(l => links.has(l)));
+    const where = el.closest('#right_rail_container, [role="complementary"]') ? 'the right column'
+      : el.closest('[role="feed"]') ? 'the feed'
+      : el.closest('[role="main"]') ? 'the main column' : 'neither column';
+    const types = Object.entries(stats.xhrGraphqlTypes || {}).map(([t, n]) => `${t} ×${n}`).join(', ');
+    const lines = [
+      '',
+      `Facebook filter: ${stats.items} feed items seen in ${stats.html} page blocks, ${stats.xhr} XHR and ${stats.fetch} fetch responses; ${stats.removed} removed; hidden on the page: ${stats.feed ?? 0} feed posts, ${stats.rail ?? 0} right-column ads.`,
+      `Hooks saw: ${stats.xhrOpened} XHR opened (${stats.xhrGraphql} to /api/graphql/${types ? `, read as ${types}` : ''}), ${stats.fetchCalls} fetch calls (${stats.fetchGraphql} to /api/graphql/), workers started: ${stats.workers?.length ? stats.workers.join(', ') : 'none'}.`,
+      ...requestSummary(),
+      `Picked element is in ${where}.`,
+      ...postLinks(el)
+    ];
+    if (match.length) {
+      lines.push('Feed items matching this post:');
+      for (const s of match) {
+        lines.push(`  [${s.source}${s.cut ? ', removed' : ''}] category=${s.category} type=${s.type} ${s.links.slice(0, 2).join(' ')}`);
+        lines.push(`    marks: ${s.marks.length ? s.marks.join('; ') : 'none'}`);
+      }
+    } else {
+      // Kinds only. Other items' links are other people's profiles, and a
+      // report is meant for a public issue tracker.
+      const kinds = new Map();
+      for (const s of seen) {
+        const k = `${s.source}/${s.type}${s.category ? `/${s.category}` : ''}`;
+        kinds.set(k, (kinds.get(k) || 0) + 1);
+      }
+      lines.push(seen.length ? 'No feed item matched this post. Kinds seen (last 80):' : 'No feed items seen at all.');
+      for (const [k, n] of [...kinds].sort((a, b) => b[1] - a[1]).slice(0, 10)) lines.push(`  ${n} × ${k}`);
+    }
+    return lines;
+  }
+
+  // Requests this page has made to facebook.com, by path, from the browser's
+  // own resource timing. Requests made in a worker or another frame are not
+  // in this document's timing, which is itself worth knowing.
+  function requestSummary() {
+    const counts = new Map();
+    for (const e of performance.getEntriesByType('resource')) {
+      if (e.initiatorType !== 'xmlhttprequest' && e.initiatorType !== 'fetch' && e.initiatorType !== 'beacon') continue;
+      let u;
+      try { u = new URL(e.name); } catch { continue; }
+      if (!/(^|\.)facebook\.com$/.test(u.hostname)) continue;
+      const key = `${e.initiatorType} ${u.hostname === location.hostname ? '' : u.hostname}${u.pathname}`;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    if (!counts.size) return ['Page requests to facebook.com: none in this page\'s timing.'];
+    return ['Page requests to facebook.com:', ...[...counts].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `  ${n} × ${k}`)];
+  }
+
+  // The first links in the post, in page order: the header comes first,
+  // with the advertiser and the "Sponsored" link. Query values are left out
+  // except __tn__, Facebook's code for what kind of link it is.
+  function postLinks(el) {
+    const out = [];
+    for (const a of el.querySelectorAll('a')) {
+      if (out.length >= 8) break;
+      const raw = a.getAttribute('href') || '';
+      let desc;
+      try {
+        const u = new URL(raw, location.href);
+        const keys = [...new Set([...u.searchParams.keys()])];
+        const tn = u.searchParams.get('__tn__');
+        desc = `${raw.startsWith('#') ? raw.slice(0, 12) : u.hostname === location.hostname ? u.pathname : u.hostname + u.pathname}`
+          + (keys.length ? ` ?${keys.join('&')}` : '') + (tn ? ` __tn__=${tn}` : '');
+      } catch {
+        desc = raw.slice(0, 40);
+      }
+      const label = a.getAttribute('aria-label');
+      out.push(`  a ${desc || '(no href)'}${label && label.length <= 40 ? ` aria-label="${label}"` : ''}`);
+    }
+    return out.length ? ['First links in the post:', ...out] : [];
   }
 
   async function copy(text) {

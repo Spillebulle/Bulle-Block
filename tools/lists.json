@@ -1,5 +1,5 @@
 {
-  "_comment": "Block lists compiled by tools/build_rules.py. Each entry becomes one toggleable ruleset. format: 'hosts' (StevenBlack style), 'domains' (adblock syntax holding only ||domain^ lines, as DNS lists use) or 'adblock' (full EasyList syntax: network patterns and element hiding). 'documents': also block navigating to a listed site, not only what pages load from it.",
+  "_comment": "Block lists compiled by tools/build_rules.py. Each entry becomes one toggleable ruleset. format: 'hosts' (StevenBlack style), 'domains' (adblock syntax holding only ||domain^ lines, as DNS lists use) or 'adblock' (full EasyList syntax: network patterns and element hiding). 'documents': also block navigating to a listed site, not only what pages load from it. A list with 'path' instead of 'url' is read from this repository.",
   "lists": [
     {
       "id": "easylist",
@@ -14,6 +14,22 @@
       "name": "EasyPrivacy",
       "about": "Trackers and analytics.",
       "url": "https://easylist.to/easylist/easyprivacy.txt",
+      "format": "adblock",
+      "enabled": true
+    },
+    {
+      "id": "nordic",
+      "name": "Nordic filters",
+      "about": "Ads on Norwegian and Danish sites, by Dandelion Sprout.",
+      "url": "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/NorwegianList.txt",
+      "format": "adblock",
+      "enabled": true
+    },
+    {
+      "id": "fixes",
+      "name": "Bulle Block fixes",
+      "about": "Our own fixes for ads the other lists miss.",
+      "path": "tools/fixes.txt",
       "format": "adblock",
       "enabled": true
     },

@@ -6,8 +6,10 @@ const DEFAULT_SETTINGS = {
   enabled: true,
   cosmetic: true,
   facebook: true,
+  popups: true,
   lists: {},
-  paused: []
+  paused: [],
+  noRedirect: []
 };
 
 const $ = id => document.getElementById(id);
@@ -102,8 +104,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     '',
     `Bulle Block ${chrome.runtime.getManifest().version} on ${brand}`,
     `Lists on: ${index.filter(e => settings.lists[e.id] ?? e.enabled).map(e => e.name).join(', ') || 'none'}`,
-    `Hide ad spaces: ${settings.cosmetic ? 'on' : 'off'}. Facebook sponsored posts: ${settings.facebook ? 'on' : 'off'}.`,
-    `Blocking on this site: ${siteOn.checked ? 'on' : 'paused'}.`
+    `Hide ad spaces: ${settings.cosmetic ? 'on' : 'off'}. Facebook sponsored posts: ${settings.facebook ? 'on' : 'off'}. Close ad pop-ups: ${settings.popups ? 'on' : 'off'}.`,
+    `Blocking on this site: ${siteOn.checked ? 'on' : 'paused'}.`,
+    `Domains with redirects stopped: ${settings.noRedirect.length}.` // a count: the list itself is private
   ].join('\n');
   const showNote = text => { $('reportNote').textContent = text; $('reportNote').hidden = false; };
   const openIssue = (title, label) => chrome.tabs.create({
@@ -173,6 +176,50 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (host) $('reloadNote').hidden = false;
     });
   }
+  // Read for each new tab, so no reload is needed.
+  $('popups').checked = settings.popups;
+  $('popups').addEventListener('change', () => save({ popups: $('popups').checked }));
+
+  // ── Stop redirects to ──────────────────────────────────────────────────
+  // Takes a bare domain or an address pasted from the bar.
+  const cleanDomain = text => {
+    const t = text.trim().toLowerCase();
+    try {
+      const name = stripWww(new URL(t.includes('://') ? t : `https://${t}`).hostname);
+      return name.includes('.') ? name : '';
+    } catch {
+      return '';
+    }
+  };
+
+  const saveRedirects = list => {
+    settings.noRedirect = list;
+    save({ noRedirect: list });
+    drawRedirects();
+    if (host) $('reloadNote').hidden = false;
+  };
+
+  function drawRedirects() {
+    $('redirects').replaceChildren(...settings.noRedirect.map(domain => {
+      const row = $('redirectRow').content.firstElementChild.cloneNode(true);
+      row.querySelector('.domain-name').textContent = domain;
+      const remove = row.querySelector('.remove');
+      remove.title = `Let pages redirect to ${domain} again.`;
+      remove.setAttribute('aria-label', remove.title);
+      remove.addEventListener('click', () => saveRedirects(settings.noRedirect.filter(d => d !== domain)));
+      return row;
+    }));
+  }
+  drawRedirects();
+
+  $('redirectForm').addEventListener('submit', event => {
+    event.preventDefault();
+    const domain = cleanDomain($('redirectInput').value);
+    $('redirectNote').hidden = Boolean(domain);
+    if (!domain) return;
+    $('redirectInput').value = '';
+    if (!settings.noRedirect.includes(domain)) saveRedirects([...settings.noRedirect, domain]);
+  });
 
   // ── Block lists ────────────────────────────────────────────────────────
   const tpl = $('listRow');
